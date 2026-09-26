@@ -1,18 +1,29 @@
-from django.urls import include, path
-from rest_framework.routers import DefaultRouter
-from .views import (BuildingViewSet, BuildingMembershipViewSet, FloorViewSet,
-                    UnitViewSet, OwnershipViewSet, TenancyViewSet)
+from django.urls import path
+from . import views
 
 
-router = DefaultRouter()
-
-router.register("buildings", BuildingViewSet, basename="building")
-router.register("memberships", BuildingMembershipViewSet, basename="membership")
-router.register("floors", FloorViewSet, basename="floor")
-router.register("units", UnitViewSet, basename="unit")
-router.register("ownerships", OwnershipViewSet, basename="ownership")
-router.register("tenancies", TenancyViewSet, basename="tenancy")
-
+app_name = 'buildings'
 urlpatterns = [
-    path("", include(router.urls)),
+    path('building/', views.BuildingView.as_view()),
+    path('building/<int:pk>/', views.BuildingView.as_view()),
+    path('membership/', views.BuildingMembershipView.as_view()),
+    path('membership/<int:pk>/', views.BuildingMembershipView.as_view()),
+    path('floor/', views.FloorsView.as_view()),
+    path('floor/<int:pk>/', views.FloorsView.as_view()),
+    path('unit/', views.UnitView.as_view()),
+    path('unit/<int:pk>/', views.UnitView.as_view()),
+    path('ownership/', views.OwnershipView.as_view()),
+    path('ownership/<int:pk>/', views.OwnershipView.as_view()),
+    path('tenancy/', views.TenancyView.as_view()),
+    path('tenancy/<int:pk>/', views.TenancyView.as_view()),
+    path('facilities/', views.FacilitiesView.as_view()),
+    path('facilities/<int:pk>/', views.FacilitiesView.as_view()),
+    path('facility_bookings/', views.FacilityBookingsView.as_view()),
+    path('facility_bookings/<int:pk>/', views.FacilityBookingsView.as_view()),
+    path('announcements/', views.AnnouncementsView.as_view()),
+    path('announcements/<int:pk>/', views.AnnouncementsView.as_view()),
+    path('tickets/', views.TicketsView.as_view()),
+    path('tickets/<int:pk>/', views.TicketsView.as_view()),
+    path('ticket_messages/', views.TicketMessagesView.as_view()),
+    path('ticket_messages/<int:pk>/', views.TicketMessagesView.as_view()),
 ]

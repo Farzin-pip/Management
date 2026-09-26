@@ -1,9 +1,7 @@
 import secrets
 from django.conf import settings
 from django.utils import timezone
-from kavenegar import APIException
-from kavenegar import HTTPException
-from kavenegar import KavenegarAPI
+from kavenegar import APIException, KavenegarAPI, HTTPException
 from accounts.models import OtpCode
 
 

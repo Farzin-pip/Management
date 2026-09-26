@@ -4,15 +4,24 @@ from .managers import UserManager
 
 
 class User(AbstractBaseUser,PermissionsMixin):
+
+    class Role(models.TextChoices):
+        ADMIN = 'admin'
+        MANAGER = 'manager'
+        RESIDENT = 'resident'
+        GUARD = 'guard'
+        ACCOUNTANT = 'accountant'
+
     phone_number = models.CharField(max_length=11, unique=True, db_index=True)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.RESIDENT)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     objects = UserManager()
 
-    date_joined = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'phone_number'
