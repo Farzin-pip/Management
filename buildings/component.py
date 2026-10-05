@@ -1,5 +1,6 @@
 from datetime import timedelta
 from .models import FacilityBookings
+from .selectors import facility_bookings
 
 
 def check_facility_booking(
@@ -9,10 +10,7 @@ def check_facility_booking(
     booking_id=None
 ):
 
-    bookings = FacilityBookings.objects.filter(
-        facility_id=facility_id,
-        status__in=['pending', 'approved']
-    )
+    bookings = facility_bookings(facility_id)
 
     if booking_id:
         bookings = bookings.exclude(pk=booking_id)

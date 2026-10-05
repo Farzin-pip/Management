@@ -1,11 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
+from .selectors import facility_booking_by_id
 from .serializers import (BuildingSerializer, BuildingMembershipSerializer, UnitSerializer,
                         OwnershipSerializer, TenancySerializer, FacilitiesSerializer, FacilityBookingsSerializer,
                         AnnouncementsSerializer, TicketsSerializer, TicketMessagesSerializer, FloorSerializer)
 from .models import (Building, BuildingMembership, Unit, Ownership, Tenancy,  Facilities, FacilityBookings,
                      Announcements, Tickets, TicketMessages, Floors)
+from .services import create_facility_booking, update_facility_booking
 
 
 class BuildingView(APIView):
@@ -206,16 +208,20 @@ class FacilityBookingsView(APIView):
     def post(self, request):
         ser_data = FacilityBookingsSerializer(data=request.data)
         if ser_data.is_valid():
-            ser_data.save()
-            return Response(ser_data.data, status=status.HTTP_201_CREATED)
-        return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                facility_booking = create_facility_booking(ser_data.validated_data)
+                return Response(FacilityBookingsSerializer(facility_booking).data, status=status.HTTP_201_CREATED)
+            except ValueError as e:return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response( ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
-        facility_booking = FacilityBookings.objects.get(pk=pk)
+        facility_booking = facility_booking_by_id(pk)
         ser_data = FacilityBookingsSerializer(instance=facility_booking, data=request.data, partial=True)
         if ser_data.is_valid():
-            ser_data.save()
-            return Response(ser_data.data, status=status.HTTP_200_OK)
+            try:
+                facility_booking = update_facility_booking(facility_booking, ser_data.validated_data)
+                return Response(FacilityBookingsSerializer(facility_booking).data, status=status.HTTP_200_OK)
+            except ValueError as e:return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):

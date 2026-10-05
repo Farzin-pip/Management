@@ -58,35 +58,6 @@ class FacilityBookingsSerializer(serializers.ModelSerializer):
         model = FacilityBookings
         fields = '__all__'
 
-    def validate(self, data):
-        facility_id = data.get('facility_id', self.instance.facility_id if self.instance else None)
-        start_time = data.get('start_time', self.instance.start_time if self.instance else None)
-        end_time = data.get('end_time', self.instance.end_time if self.instance else None)
-
-        if start_time >= end_time:
-            raise serializers.ValidationError(
-                {'message': 'End time must be after start time!'}
-            )
-
-        booking_id = self.instance.pk if self.instance else None
-
-        booking = check_facility_booking(
-            facility_id,
-            start_time,
-            end_time,
-            booking_id
-        )
-
-        if booking:
-            raise serializers.ValidationError(
-                {
-                    'message': f'This facility is already booked by unit '
-                               f'{booking.unit_id.number}!'
-                }
-            )
-
-        return data
-
 
 class AnnouncementsSerializer(serializers.ModelSerializer):
 
