@@ -125,6 +125,7 @@ class TenancyView(APIView):
     def post(self, request):
         ser_data = TenancySerializer(data=request.data)
         if ser_data.is_valid():
+            ser_data.save()
             return Response(ser_data.data, status=status.HTTP_201_CREATED)
         return Response(ser_data.errors, status=status.HTTP_200_OK)
 

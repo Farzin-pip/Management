@@ -62,6 +62,7 @@ class Invoices(models.Model):
     total_amount = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=30, choices=StatusType.choices, default=StatusType.UNPAID)
 
+
     def __str__(self):
         return f"{self.unit} - {self.period_start} | {self.period_end}"
 

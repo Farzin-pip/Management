@@ -15,4 +15,6 @@ urlpatterns = [
     path('invoice_items/<int:pk>/', views.InvoiceItemView.as_view()),
     path('payments/', views.PaymentView.as_view()),
     path('payments/<int:pk>/', views.PaymentView.as_view()),
+    path('overdue_invoices/', views.OverdueInvoicesView.as_view()),
+    path('send_overdue_sms/', views.SendOverdueInvoiceSMSView.as_view()),
 ]

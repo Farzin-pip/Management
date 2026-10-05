@@ -56,13 +56,26 @@ class BuildingMembershipAdmin(admin.ModelAdmin):
 class UnitAdmin(admin.ModelAdmin):
     list_display = (
         'id',
+        'number',
         'building',
         'area',
+        'get_owner',
+        'get_tenant',
         'parking_count',
         'storage_number',
         'is_active',
         'created_at',
     )
+
+    @admin.display(description="Owner")
+    def get_owner(self, obj):
+        ownership = obj.owners.filter(end_date__isnull=True).select_related("user").first()
+        return ownership.user if ownership else "-"
+
+    @admin.display(description="tenancies")
+    def get_tenant(self, obj):
+        tenancy = obj.tenancies.filter(end_date__isnull=True).select_related("user").first()
+        return tenancy.user if tenancy else "-"
 
     list_filter = (
         'building',

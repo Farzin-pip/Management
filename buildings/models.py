@@ -56,28 +56,30 @@ class Floors(models.Model):
     number = models.IntegerField(default=0, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.floor_count}"
+        return f"{self.number}-{self.building}"
 
 
 class Unit(models.Model):
     building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="units", null=True, blank=True)
     floor = models.ForeignKey(Floors, on_delete=models.CASCADE, related_name="unit_floor", null=True, blank=True)
+    number = models.IntegerField(null=True, blank=True)
     postal_code = models.CharField(max_length=100, unique=True, null=True, blank=True)
     area = models.IntegerField(null=True, blank=True)
     parking_count = models.PositiveIntegerField(default=0, null=True, blank=True)
     storage_number = models.PositiveIntegerField(null=True, blank=True)
     ownership = models.ForeignKey('Ownership', on_delete=models.CASCADE, related_name="unit_ownership", null=True, blank=True)
+    tenancy = models.ForeignKey('Tenancy', on_delete=models.CASCADE, related_name="unit_tenancy", null=True, blank=True)
     is_active = models.BooleanField(default=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.building.name}"
+        return f"{self.number}"
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["building", "floor"],
+                fields=["building", "floor", "number"],
                 name="unique_unit_per_floor"
             )
         ]
@@ -89,6 +91,9 @@ class Ownership(models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.last_name}"
 
     class Meta:
         ordering = ["-start_date"]
@@ -152,7 +157,7 @@ class FacilityBookings(models.Model):
     status = models.CharField(max_length=30, choices=StatusType.choices)
 
     def __str__(self):
-        return self.facility_id
+        return str(self.facility_id)
 
 
 class Announcements(models.Model):
@@ -177,7 +182,7 @@ class Tickets(models.Model):
     class StatusType(models.TextChoices):
         OPEN = 'open'
         IN_PROGRESS = 'in_progress'
-        RESOLVED = 'resoled'
+        RESOLVED = 'resolved'
         CLOSED = 'closed'
 
     building_id = models.ForeignKey(Building, on_delete=models.CASCADE)
@@ -197,7 +202,7 @@ class TicketMessages(models.Model):
     description = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return self.ticket
+        return str(self.ticket)
 
 
 
