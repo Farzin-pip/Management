@@ -148,13 +148,19 @@ class FacilityBookings(models.Model):
         APPROVED = 'approved'
         PENDING = 'pending'
 
+    class PaymentType(models.TextChoices):
+        INSTANT = 'instant'
+        INVOICE = 'invoice'
+
     facility_id = models.ForeignKey(Facilities, on_delete=models.CASCADE)
     unit_id = models.ForeignKey(Unit, on_delete=models.CASCADE)
     user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    start_time = models.DateTimeField(null=True, blank=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    fee_amount = models.FloatField(null=True, blank=True)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    fee_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=30, choices=StatusType.choices)
+    payment_type = models.CharField(max_length=20, choices=PaymentType.choices, null=True, blank=True)
+    is_paid = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.facility_id)

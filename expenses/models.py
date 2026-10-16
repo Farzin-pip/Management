@@ -1,5 +1,5 @@
 from django.db import models
-from buildings.models import Building, Unit
+from buildings.models import Building, Unit, FacilityBookings
 from django.conf import settings
 
 
@@ -64,13 +64,14 @@ class Invoices(models.Model):
 
 
     def __str__(self):
-        return f"{self.unit} - {self.period_start} | {self.period_end}"
+        return f"{self.unit_id} - {self.period_start} | {self.period_end}"
 
 
 class InvoiceItem(models.Model):
 
     invoice = models.ForeignKey(Invoices, on_delete=models.CASCADE)
     expense_id = models.ForeignKey(Expenses, on_delete=models.SET_NULL, null=True, blank=True,)
+    facility_booking = models.ForeignKey(FacilityBookings, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoice_items')
     title = models.CharField(max_length=200)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
@@ -90,17 +91,38 @@ class Payment(models.Model):
         PENDING_APPROVAL = 'pending_approval'
         SUCCESSFUL = 'successful'
         FAILED = 'failed'
+        PENDING = 'pending'
 
     user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     unit_id = models.ForeignKey(Unit, on_delete=models.CASCADE)
     invoice_id = models.ForeignKey(Invoices, on_delete=models.SET_NULL, null=True, blank=True)
+    facility_booking = models.ForeignKey(
+        'buildings.FacilityBookings', on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
-    receipt_attachment = models.URLField()
-    tracking_code = models.CharField(max_length=100)
-    reference_id = models.CharField(max_length=100)
-    paid_at = models.DateTimeField()
+    receipt_attachment = models.URLField(null=True, blank=True)
+    tracking_code = models.CharField(max_length=100, null=True, blank=True)
+    reference_id = models.CharField(max_length=100, null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING_APPROVAL)
 
     def __str__(self):
         return f"{self.user_id} - {self.amount}"
+
+
+class InvoicePenalty(models.Model):
+    invoice = models.ForeignKey(Invoices, on_delete=models.CASCADE, related_name='penalties')
+    month_number = models.PositiveIntegerField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['invoice', 'month_number'],
+                name='unique_invoice_penalty_month'
+            )
+        ]
+
+    def __str__(self):
+        return f"Invoice {self.invoice_id} - Month {self.month_number}"

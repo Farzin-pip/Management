@@ -78,3 +78,27 @@ class TicketMessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketMessages
         fields = '__all__'
+
+
+class VacantUnitOverdueChargeSerializer(serializers.Serializer):
+    invoice_id = serializers.IntegerField()
+    due_date = serializers.DateField()
+    monthly_charge = serializers.DecimalField(max_digits=12, decimal_places=2)
+    paid_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    overdue_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    late_months = serializers.IntegerField()
+    penalty = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_due = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class VacantUnitReportSerializer(serializers.Serializer):
+    unit_number = serializers.IntegerField()
+    owner_name = serializers.CharField(allow_null=True)
+    owner_phone = serializers.CharField(allow_null=True)
+    total_due = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class VacantFloorReportSerializer(serializers.Serializer):
+    floor = serializers.IntegerField()
+    vacant_units_count = serializers.IntegerField()
+    units = VacantUnitReportSerializer(many=True)

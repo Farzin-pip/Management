@@ -26,4 +26,5 @@ urlpatterns = [
     path('tickets/<int:pk>/', views.TicketsView.as_view()),
     path('ticket_messages/', views.TicketMessagesView.as_view()),
     path('ticket_messages/<int:pk>/', views.TicketMessagesView.as_view()),
+    path('vacant_units_report/', views.VacantUnitsOverdueReportView.as_view()),
 ]

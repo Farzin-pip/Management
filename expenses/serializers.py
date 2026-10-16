@@ -1,12 +1,8 @@
-# from time import timezone
 from django.utils import timezone
-
 from rest_framework import serializers
-
-from accounts.models import User
 from accounts.serializers import UserSerializer
 from buildings.serializers import UnitSerializer
-from .models import (ExpenseCategory, Expenses, ExpenseAllocations, Invoices, InvoiceItem, Payment)
+from .models import (ExpenseCategory, Expenses, ExpenseAllocations, Invoices, InvoiceItem, Payment, InvoicePenalty)
 
 
 class ExpenseCategorySerializer(serializers.ModelSerializer):
@@ -75,7 +71,7 @@ class OverdueInvoicesSerializer(serializers.ModelSerializer):
     def get_date(self, obj):
         return timezone.now()
 
-class SendOverdueSMSSerializer(serializers.Serializer):
 
+class SendOverdueSMSSerializer(serializers.Serializer):
     invoice_id = serializers.IntegerField()
 
