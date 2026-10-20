@@ -90,7 +90,7 @@ def unit_list() -> QuerySet[Unit]:
 
 
 def unit_by_id(pk: int) -> Unit:
-    return Unit.objects.get(pk=pk)
+    return Unit.objects.filter(pk=pk).first()
 
 
 def ownership_list() -> QuerySet[Ownership]:
@@ -153,7 +153,7 @@ def ticket_message_by_id(pk: int) -> TicketMessages:
     return TicketMessages.objects.get(pk=pk)
 
 
-def vacant_units_list():
+def vacant_units_list() -> list[Unit]:
     today = date.today()
     vacant_units = []
 
@@ -162,7 +162,8 @@ def vacant_units_list():
             unit=unit,
             start_date__lte=today
         ).filter(
-            models.Q(end_date__isnull=True) | models.Q(end_date__gte=today)
+            models.Q(end_date__isnull=True) |
+            models.Q(end_date__gte=today)
         ).exists()
 
         if not active_tenancy:

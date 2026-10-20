@@ -17,4 +17,8 @@ urlpatterns = [
     path('payments/<int:pk>/', views.PaymentView.as_view()),
     path('overdue_invoices/', views.OverdueInvoicesView.as_view()),
     path('send_overdue_sms/', views.SendOverdueInvoiceSMSView.as_view()),
+    path('booking_payment/<int:pk>/', views.BookingPaymentView.as_view()),
+    path('payment/<int:pk>/start/', views.StartZarinpalPaymentView.as_view()),
+    path('payment/verify/', views.ZarinpalVerifyView.as_view()),
+    path('unit/<int:pk>/debt/',views.UnitDebtDetailView.as_view()),
 ]

@@ -1,6 +1,7 @@
 from buildings.models import FacilityBookings, Building, BuildingMembership, Unit, Ownership, Tenancy, Floors, \
     Facilities, Announcements, Tickets, TicketMessages
 from expenses.models import InvoicePenalty
+from expenses.selectors import successful_booking_payment, booking_payment_exists
 from .selectors import facility_bookings, active_tenancy
 from datetime import timedelta
 from typing import Any
@@ -17,11 +18,13 @@ from django.db.models import Sum
 def create_building(data: dict[str, Any]) -> Building:
     return Building.objects.create(**data)
 
+
 def update_building(building: Building, data: dict[str, Any]) -> Building:
     for key, value in data.items():
         setattr(building, key, value)
     building.save()
     return building
+
 
 def delete_building(building: Building) -> None:
     building.delete()
@@ -30,11 +33,13 @@ def delete_building(building: Building) -> None:
 def create_building_membership(data: dict[str, Any]) -> BuildingMembership:
     return BuildingMembership.objects.create(**data)
 
+
 def update_building_membership(building_membership: BuildingMembership, data: dict[str, Any]) -> BuildingMembership:
     for key, value in data.items():
         setattr(building_membership, key, value)
     building_membership.save()
     return building_membership
+
 
 def delete_building_membership(building_membership: BuildingMembership) -> None:
     building_membership.delete()
@@ -43,11 +48,13 @@ def delete_building_membership(building_membership: BuildingMembership) -> None:
 def create_unit(data: dict[str, Any]) -> Unit:
     return Unit.objects.create(**data)
 
+
 def update_unit(unit: Unit, data: dict[str, Any]) -> Unit:
     for key, value in data.items():
         setattr(unit, key, value)
     unit.save()
     return unit
+
 
 def delete_unit(unit: Unit) -> None:
     unit.delete()
@@ -56,11 +63,13 @@ def delete_unit(unit: Unit) -> None:
 def create_ownership(data: dict[str, Any]) -> Ownership:
     return Ownership.objects.create(**data)
 
+
 def update_ownership(ownership: Ownership, data: dict[str, Any]) -> Ownership:
     for key, value in data.items():
         setattr(ownership, key, value)
     ownership.save()
     return ownership
+
 
 def delete_ownership(ownership: Ownership) -> None:
     ownership.delete()
@@ -69,11 +78,13 @@ def delete_ownership(ownership: Ownership) -> None:
 def create_tenancy(data: dict[str, Any]) -> Tenancy:
     return Tenancy.objects.create(**data)
 
+
 def update_tenancy(tenancy: Tenancy, data: dict[str, Any]):
     for key, value in data.items():
         setattr(tenancy, key, value)
     tenancy.save()
     return tenancy
+
 
 def delete_tenancy(tenancy: Tenancy) -> None:
     tenancy.delete()
@@ -88,6 +99,7 @@ def update_floor(floor: Floors, data: dict[str, Any]) -> Floors:
     floor.save()
     return floor
 
+
 def delete_floor(floor: Floors) -> None:
     floor.delete()
 
@@ -95,11 +107,13 @@ def delete_floor(floor: Floors) -> None:
 def create_facilities(data: dict[str, Any]) -> Facilities:
     return Facilities.objects.create(**data)
 
+
 def update_facilities(facilities: Facilities, data: dict[str, Any]) -> Facilities:
     for key, value in data.items():
         setattr(facilities, key, value)
     facilities.save()
     return facilities
+
 
 def delete_facilities(facilities: Facilities) -> None:
     facilities.delete()
@@ -108,11 +122,13 @@ def delete_facilities(facilities: Facilities) -> None:
 def create_announcement(data: dict[str, Any]) -> Announcements:
     return Announcements.objects.create(**data)
 
+
 def update_announcement(announcement: Announcements, data: dict[str, Any]) -> Announcements:
     for key, value in data.items():
         setattr(announcement, key, value)
     announcement.save()
     return announcement
+
 
 def delete_announcement(announcement: Announcements) -> None:
     announcement.delete()
@@ -121,11 +137,13 @@ def delete_announcement(announcement: Announcements) -> None:
 def create_ticket(data: dict[str, Any]) -> Tickets:
     return Tickets.objects.create(**data)
 
+
 def update_ticket(ticket: Tickets, data: dict[str, Any]) -> Tickets:
     for key, value in data.items():
         setattr(ticket, key, value)
     ticket.save()
     return ticket
+
 
 def delete_ticket(ticket: Tickets) -> None:
     ticket.delete()
@@ -134,18 +152,19 @@ def delete_ticket(ticket: Tickets) -> None:
 def create_ticket_message(data: dict[str, Any]) -> TicketMessages:
     return TicketMessages.objects.create(**data)
 
+
 def update_ticket_message(ticket_message: TicketMessages, data: dict[str, Any]) -> TicketMessages:
     for key, value in data.items():
         setattr(ticket_message, key, value)
     ticket_message.save()
     return ticket_message
 
+
 def delete_ticket_message(ticket_message: TicketMessages) -> None:
     ticket_message.delete()
 
 
 def create_facility_booking(data: dict[str, Any]) -> FacilityBookings:
-
     facility_id = data['facility_id']
     start_time = data['start_time']
     end_time = data['end_time']
@@ -157,8 +176,8 @@ def create_facility_booking(data: dict[str, Any]) -> FacilityBookings:
 
     for booking in bookings:
         if (
-                start_time < booking.end_time + timedelta(minutes=30)
-                and end_time > booking.start_time - timedelta(minutes=30)
+            start_time < booking.end_time + timedelta(minutes=30)
+            and end_time > booking.start_time - timedelta(minutes=30)
         ):
             tenancy = active_tenancy(booking.unit_id)
 
@@ -167,7 +186,6 @@ def create_facility_booking(data: dict[str, Any]) -> FacilityBookings:
                     f'{tenancy.user.first_name} '
                     f'{tenancy.user.last_name}'
                 )
-
                 resident_phone = tenancy.user.phone_number
 
                 raise ValueError(
@@ -181,7 +199,12 @@ def create_facility_booking(data: dict[str, Any]) -> FacilityBookings:
                 f'{booking.unit_id.number}!'
             )
 
-    return FacilityBookings.objects.create(**data)
+    booking = FacilityBookings.objects.create(**data)
+
+    if booking.status == FacilityBookings.StatusType.APPROVED:
+        add_booking_fee_to_invoice(booking)
+
+    return booking
 
 
 def update_facility_booking(booking: FacilityBookings, data: dict[str, Any]) -> FacilityBookings:
@@ -189,6 +212,8 @@ def update_facility_booking(booking: FacilityBookings, data: dict[str, Any]) -> 
     start_time = data.get('start_time', booking.start_time)
     end_time = data.get('end_time', booking.end_time)
     old_status = booking.status
+    old_payment_type = booking.payment_type
+    new_payment_type = data.get('payment_type', booking.payment_type)
 
     if not start_time or not end_time:
         raise ValueError('Start time and end time are required!')
@@ -227,6 +252,51 @@ def update_facility_booking(booking: FacilityBookings, data: dict[str, Any]) -> 
                 f'{old_booking.unit_id.number}!'
             )
 
+    cancelling = (
+        old_status == FacilityBookings.StatusType.APPROVED
+        and data.get('status') == FacilityBookings.StatusType.CANCELLED
+    )
+
+    changing_to_instant = (
+        old_payment_type == FacilityBookings.PaymentType.INVOICE
+        and new_payment_type == FacilityBookings.PaymentType.INSTANT
+    )
+
+    changing_payment_type = old_payment_type != new_payment_type
+
+    if changing_payment_type and booking_payment_exists(booking):
+        raise ValueError(
+            'This booking has a pending or successful payment. '
+            'Resolve the payment first.'
+        )
+
+    if 'fee_amount' in data:
+        new_fee_amount = Decimal(str(data['fee_amount']))
+
+        if (
+                new_fee_amount != booking.fee_amount
+                and (
+                booking.is_paid
+                or successful_booking_payment(booking)
+        )
+        ):
+            raise ValueError(
+                'This booking has a successful payment. '
+                'The booking amount cannot be changed.'
+            )
+
+    if cancelling:
+        if successful_booking_payment(booking):
+            raise ValueError(
+                'This booking has a successful payment. '
+                'The refund must be handled first.'
+            )
+
+        cancel_booking_invoice_item(booking)
+
+    elif changing_to_instant:
+        cancel_booking_invoice_item(booking)
+
     if 'facility_id' in data:
         booking.facility_id = data['facility_id']
 
@@ -253,13 +323,7 @@ def update_facility_booking(booking: FacilityBookings, data: dict[str, Any]) -> 
 
     booking.save()
 
-    if (
-        old_status == FacilityBookings.StatusType.APPROVED
-        and booking.status == FacilityBookings.StatusType.CANCELLED
-    ):
-        cancel_booking_invoice_item(booking)
-
-    elif booking.status == FacilityBookings.StatusType.APPROVED:
+    if not cancelling and booking.status == FacilityBookings.StatusType.APPROVED:
         add_booking_fee_to_invoice(booking)
 
     return booking

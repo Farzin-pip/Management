@@ -1,11 +1,12 @@
 from django.db.models import QuerySet
+from django.db.models import Sum
 from .models import (
     ExpenseCategory,
     Expenses,
     ExpenseAllocations,
     Invoices,
     InvoiceItem,
-    Payment
+    Payment, InvoicePenalty
 )
 
 
@@ -98,3 +99,56 @@ def booking_payment_exists(booking):
             Payment.Status.SUCCESSFUL
         ]
     ).exists()
+
+
+def invoice_is_settled(invoice):
+    if invoice.status == Invoices.StatusType.PAID:
+        return True
+
+    paid_amount = Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    return paid_amount >= invoice.total_amount
+
+
+def successful_payments_total(invoice):
+    return Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+
+def successful_booking_payment(booking):
+    return Payment.objects.filter(
+        facility_booking=booking,
+        status=Payment.Status.SUCCESSFUL
+    ).first()
+
+
+def invoice_has_successful_payment(invoice):
+    return Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    ).exists()
+
+
+def payment_by_authority(authority):
+    return Payment.objects.filter(authority=authority).first()
+
+
+def invoices_by_unit(unit):
+    return Invoices.objects.filter(
+        unit_id=unit
+    ).prefetch_related(
+        'invoiceitem_set'
+    ).order_by('due_date')
+
+
+def successful_payments_by_invoice(invoice):
+    return Payment.objects.filter(invoice_id=invoice, status=Payment.Status.SUCCESSFUL)
+
+
+def penalties_by_invoice(invoice):
+    return InvoicePenalty.objects.filter(invoice=invoice)

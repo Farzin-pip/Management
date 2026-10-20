@@ -4,18 +4,22 @@ from rest_framework import status
 from rest_framework.response import Response
 from kavenegar import HTTPException, APIException, KavenegarAPI
 from django.conf import settings
+
+from buildings.selectors import facility_booking_by_id, unit_by_id
 from .models import ExpenseCategory, Expenses, ExpenseAllocations, Invoices, InvoiceItem, Payment
 from .serializers import (ExpenseCategorySerializer, ExpensesSerializer, ExpenseAllocationsSerializer,
                           InvoicesSerializer, InvoiceItemSerializer, PaymentSerializer, OverdueInvoicesSerializer,
-                          SendOverdueSMSSerializer)
+                          SendOverdueSMSSerializer, UnitDebtDetailSerializer)
 from .selectors import (expense_category_list, expenses_list, expense_allocations_list, invoices_list,
-                        invoice_items_list, payments_list, overdue_invoices_list, overdue_invoice_by_id)
+                        invoice_items_list, payments_list, overdue_invoices_list, overdue_invoice_by_id, payment_by_id,
+                        payment_by_authority)
 from .services import (create_expense_category, update_expense_category, delete_expense_category,
                        create_expenses, update_expenses, delete_expenses,
                        create_expense_allocations, update_expense_allocations, delete_expense_allocations,
                        create_invoice, update_invoice, delete_invoice,
                        create_invoice_item, update_invoice_item, delete_invoice_item,
-                       create_payment, update_payment, delete_payment)
+                       create_payment, update_payment, delete_payment, create_booking_payment, create_zarinpal_payment,
+                       verify_zarinpal_payment, unit_debt_detail)
 
 
 class ExpenseCategoryView(APIView):
@@ -238,3 +242,103 @@ class SendOverdueInvoiceSMSView(APIView):
 
         return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class BookingPaymentView(APIView):
+    def post(self, request, pk):
+        booking = facility_booking_by_id(pk)
+
+        if not booking:
+            return Response({'error': 'Booking not found!'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            payment = create_booking_payment(booking)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'payment_id': payment.id,
+                'booking_id': booking.id,
+                'amount': payment.amount,
+                'status': payment.status
+            }, status=status.HTTP_201_CREATED)
+
+
+class StartZarinpalPaymentView(APIView):
+    def post(self, request, pk):
+        payment = payment_by_id(pk)
+
+        if not payment:
+            return Response({'message': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if payment.payment_method != Payment.PaymentMethod.ONLINE_GATEWAY:
+            return Response(
+                {'message': 'This payment is not an online gateway payment.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if payment.status == Payment.Status.SUCCESSFUL:
+            return Response(
+                {'message': 'This payment has already been completed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payment_url = create_zarinpal_payment(payment)
+            return Response(
+                {
+                    'payment_id': payment.id,
+                    'payment_url': payment_url,
+                    'status': payment.status,
+                },
+                status=status.HTTP_200_OK
+            )
+        except ValueError as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ZarinpalVerifyView(APIView):
+    def get(self, request):
+        authority = request.query_params.get('Authority')
+        payment_status = request.query_params.get('Status')
+
+        if not authority:
+            return Response({'message': 'Authority is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment = payment_by_authority(authority)
+
+        if not payment:
+            return Response({'message': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if payment_status != 'OK':
+            payment.status = Payment.Status.FAILED
+            payment.save(update_fields=['status'])
+
+            return Response(
+                {
+                    'payment_id': payment.id,
+                    'status': payment.status,
+                    'message': 'Payment was canceled or unsuccessful.'
+                }, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            result = verify_zarinpal_payment(payment)
+
+            return Response(
+                {
+                    'payment_id': payment.id,
+                    'status': payment.status,
+                    **result
+                }, status=(status.HTTP_200_OK
+                    if result['success']
+                    else status.HTTP_400_BAD_REQUEST)
+            )
+        except ValueError as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UnitDebtDetailView(APIView):
+    def get(self, request, pk):
+        unit = unit_by_id(pk)
+        if not unit:
+            return Response({'message': 'Unit not found.'}, status=status.HTTP_404_NOT_FOUND)
+        data = unit_debt_detail(unit)
+        ser_data = UnitDebtDetailSerializer(data)
+        return Response(ser_data.data, status=status.HTTP_200_OK)

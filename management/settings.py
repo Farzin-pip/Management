@@ -157,17 +157,6 @@ AUTH_USER_MODEL = 'accounts.User'
 KAVENEGAR_API_KEY = env("KAVENEGAR_API_KEY")
 KAVENEGAR_SENDER = env("KAVENEGAR_SENDER")
 
-# Celery Config
-#
-# CELERY_BROKER_URL = env('CELERY_BROKER_URL')
-# CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND')
-# CELERY_TIMEZONE = env('CELERY_TIMEZONE')
-# CELERY_ACCEPT_CONTENT = [
-#     'json',
-# ]
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-
 # Rest FrameWork
 
 # REST_FRAMEWORK = {
@@ -175,3 +164,12 @@ KAVENEGAR_SENDER = env("KAVENEGAR_SENDER")
 #         'rest_framework_simplejwt.authentication.JWTAuthentication',
 #     ),
 # }
+
+# ZarinPal
+
+ZARINPAL_MERCHANT_ID = env('ZARINPAL_MERCHANT_ID', default='')
+ZARINPAL_SANDBOX = env.bool('ZARINPAL_SANDBOX', default=True)
+ZARINPAL_CALLBACK_URL = env(
+    'ZARINPAL_CALLBACK_URL',
+    default='http://127.0.0.1:8000/expenses/payment/verify/'
+)

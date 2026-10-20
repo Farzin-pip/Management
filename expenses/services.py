@@ -1,7 +1,10 @@
-from decimal import Decimal
+from django.conf import settings
+import requests
 from typing import Any
 from datetime import date, timedelta
 from buildings.models import FacilityBookings
+from django.db.models import Sum
+from django.db import models
 from .models import (
     ExpenseCategory,
     Expenses,
@@ -11,7 +14,8 @@ from .models import (
     Payment, InvoicePenalty
 )
 from .selectors import invoice_by_unit_and_period, facility_booking_invoice_item, facility_booking_invoice_item_exists, \
-    booking_payment_exists
+    booking_payment_exists, invoice_has_successful_payment, invoices_by_unit, successful_payments_by_invoice, \
+    penalties_by_invoice
 
 
 def create_expense_category(data: dict[str, Any]) -> ExpenseCategory:
@@ -104,7 +108,29 @@ def delete_payment(payment: Payment) -> None:
     payment.delete()
 
 
+from decimal import Decimal
+from .models import InvoicePenalty, Invoices, Payment
+
+
+def invoice_is_settled(invoice):
+    if invoice.status == Invoices.StatusType.PAID:
+        return True
+
+    paid_amount = Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    return paid_amount >= invoice.total_amount
+
+
 def save_invoice_penalties(invoice, late_months):
+    if invoice_is_settled(invoice):
+        return
+
+    if late_months <= 0:
+        return
+
     for month in range(1, late_months + 1):
         InvoicePenalty.objects.get_or_create(
             invoice=invoice,
@@ -125,8 +151,34 @@ def add_booking_fee_to_invoice(booking: FacilityBookings):
     if booking.is_paid:
         return None
 
-    if facility_booking_invoice_item_exists(booking):
-        return None
+    amount = Decimal(str(booking.fee_amount or 0))
+
+    invoice_item = facility_booking_invoice_item(booking)
+
+    if invoice_item:
+        invoice = invoice_item.invoice
+
+        if invoice_item.amount == amount:
+            return invoice
+
+        if invoice_has_successful_payment(invoice):
+            raise ValueError(
+                'این فاکتور پرداخت موفق دارد؛ '
+                'ابتدا باید وضعیت مالی آن مشخص شود.'
+            )
+
+        difference = amount - invoice_item.amount
+
+        invoice_item.amount = amount
+        invoice_item.save()
+
+        invoice.total_amount = max(
+            Decimal('0.00'),
+            invoice.total_amount + difference
+        )
+        invoice.save()
+
+        return invoice
 
     today = date.today()
     period_start = today.replace(day=1)
@@ -156,7 +208,17 @@ def add_booking_fee_to_invoice(booking: FacilityBookings):
             status=Invoices.StatusType.UNPAID
         )
 
-    amount = Decimal(str(booking.fee_amount or 0))
+    InvoiceItem.objects.create(
+        invoice=invoice,
+        facility_booking=booking,
+        title=f'هزینه رزرو {booking.facility_id}',
+        amount=amount
+    )
+
+    invoice.total_amount += amount
+    invoice.save()
+
+    return invoice
 
     InvoiceItem.objects.create(
         invoice=invoice,
@@ -179,13 +241,20 @@ def cancel_booking_invoice_item(booking: FacilityBookings) -> None:
 
     invoice = invoice_item.invoice
 
+    if invoice_has_successful_payment(invoice):
+        raise ValueError(
+            'این فاکتور پرداخت موفق دارد؛ ابتدا باید وضعیت مالی آن مشخص شود.'
+        )
+
     invoice.total_amount = max(
         Decimal('0.00'),
         invoice.total_amount - invoice_item.amount
     )
-    invoice.save()
+    invoice.save(update_fields=['total_amount'])
 
     invoice_item.delete()
+
+    update_invoice_status(invoice)
 
 
 def create_booking_payment(booking: FacilityBookings):
@@ -240,3 +309,222 @@ def confirm_booking_payment(payment, reference_id):
     booking.save()
 
     return payment
+
+
+def update_invoice_status(invoice: Invoices) -> None:
+    successful_payments = Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    )
+
+    paid_amount = successful_payments.aggregate(
+        total=models.Sum('amount')
+    )['total'] or Decimal('0.00')
+
+    if invoice.total_amount <= Decimal('0.00'):
+        invoice.status = Invoices.StatusType.UNPAID
+
+    elif paid_amount >= invoice.total_amount:
+        invoice.status = Invoices.StatusType.PAID
+
+    elif paid_amount > Decimal('0.00'):
+        invoice.status = Invoices.StatusType.PARTIALLY_PAID
+
+    elif invoice.due_date < timezone.localdate():
+        invoice.status = Invoices.StatusType.OVERDUE
+
+    else:
+        invoice.status = Invoices.StatusType.UNPAID
+
+    invoice.save(update_fields=['status'])
+
+
+def create_zarinpal_payment(payment: Payment) -> str:
+    if not settings.ZARINPAL_MERCHANT_ID:
+        raise ValueError('Zarinpal Merchant ID is not configured.')
+
+    amount = int(payment.amount * 10)
+
+    if amount <= 0:
+        raise ValueError('Payment amount must be greater than zero.')
+
+    if payment.status == Payment.Status.SUCCESSFUL:
+        raise ValueError('This payment has already been completed.')
+
+    if payment.authority:
+        raise ValueError('A payment request has already been created.')
+
+    url = 'https://sandbox.zarinpal.com/pg/v4/payment/request.json'
+
+    if not settings.ZARINPAL_SANDBOX:
+        url = 'https://payment.zarinpal.com/pg/v4/payment/request.json'
+
+    data = {
+        'merchant_id': settings.ZARINPAL_MERCHANT_ID,
+        'amount': amount,
+        'callback_url': settings.ZARINPAL_CALLBACK_URL,
+        'description': f'Facility booking payment {payment.facility_booking_id}',
+        'metadata': {
+            'mobile': payment.user_id.phone_number,
+        },
+    }
+
+    try:
+        response = requests.post(url, json=data, timeout=15)
+        response.raise_for_status()
+        result = response.json()
+    except requests.RequestException as e:
+        raise ValueError('Could not connect to Zarinpal.') from e
+
+    if result.get('data', {}).get('code') != 100:
+        raise ValueError(
+            f"Zarinpal payment request failed: {result.get('errors', result.get('data'))}"
+        )
+
+    payment.authority = result['data']['authority']
+    payment.status = Payment.Status.PENDING
+    payment.save(update_fields=['authority', 'status'])
+
+    base_url = 'https://sandbox.zarinpal.com/pg/StartPay/'
+
+    if not settings.ZARINPAL_SANDBOX:
+        base_url = 'https://payment.zarinpal.com/pg/StartPay/'
+
+    return f"{base_url}{payment.authority}"
+
+
+def verify_zarinpal_payment(payment: Payment) -> dict:
+    if not settings.ZARINPAL_MERCHANT_ID:
+        raise ValueError('Zarinpal Merchant ID is not configured.')
+
+    if not payment.authority:
+        raise ValueError('Payment authority not found.')
+
+    if payment.status == Payment.Status.SUCCESSFUL:
+        return {
+            'success': True,
+            'reference_id': payment.reference_id,
+            'message': 'This payment has already been verified.'
+        }
+
+    url = 'https://sandbox.zarinpal.com/pg/v4/payment/verify.json'
+
+    if not settings.ZARINPAL_SANDBOX:
+        url = 'https://payment.zarinpal.com/pg/v4/payment/verify.json'
+
+    data = {
+        'merchant_id': settings.ZARINPAL_MERCHANT_ID,
+        'amount': int(payment.amount * 10),
+        'authority': payment.authority,
+    }
+
+    try:
+        response = requests.post(url, json=data, timeout=15)
+        response.raise_for_status()
+        result = response.json()
+    except requests.RequestException as e:
+        raise ValueError('Could not connect to Zarinpal.') from e
+
+    result_data = result.get('data', {})
+    code = result_data.get('code')
+
+    if code in [100, 101]:
+        payment.status = Payment.Status.SUCCESSFUL
+        payment.reference_id = str(result_data.get('ref_id', ''))
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=['status', 'reference_id', 'paid_at'])
+
+        return {
+            'success': True,
+            'reference_id': payment.reference_id,
+            'message': 'Payment verified successfully.'
+        }
+
+    payment.status = Payment.Status.FAILED
+    payment.save(update_fields=['status'])
+
+    return {
+        'success': False,
+        'message': 'Payment verification failed.',
+        'details': result.get('errors', result_data)
+    }
+
+
+def unit_debt_detail(unit):
+    today = date.today()
+    invoices_data = []
+    total_debt = Decimal('0.00')
+    total_penalty = Decimal('0.00')
+
+    for invoice in invoices_by_unit(unit):
+        payments = successful_payments_by_invoice(invoice)
+
+        paid_amount = payments.aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0.00')
+
+        remaining_amount = max(
+            Decimal('0.00'),
+            invoice.total_amount - paid_amount
+        )
+
+        if invoice.due_date and invoice.due_date < today and remaining_amount > 0:
+            late_months = (
+                (today.year - invoice.due_date.year) * 12
+                + today.month - invoice.due_date.month
+            )
+
+            if today.day < invoice.due_date.day:
+                late_months -= 1
+
+            save_invoice_penalties(invoice, max(0, late_months))
+
+        penalty = penalties_by_invoice(invoice).aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0.00')
+
+        items = [
+            {
+                'id': item.id,
+                'description': item.title,
+                'amount': item.amount
+            }
+            for item in invoice.invoiceitem_set.all()
+        ]
+
+        payment_data = [
+            {
+                'id': payment.id,
+                'amount': payment.amount,
+                'status': payment.status,
+                'paid_at': payment.paid_at,
+                'reference_id': payment.reference_id
+            }
+            for payment in payments
+        ]
+
+        invoices_data.append({
+            'invoice_id': invoice.id,
+            'status': invoice.status,
+            'period_start': invoice.period_start,
+            'period_end': invoice.period_end,
+            'due_date': invoice.due_date,
+            'total_amount': invoice.total_amount,
+            'paid_amount': paid_amount,
+            'remaining_amount': remaining_amount,
+            'penalty': penalty,
+            'items': items,
+            'payments': payment_data
+        })
+
+        total_debt += remaining_amount
+        total_penalty += penalty
+
+    return {
+        'unit_id': unit.id,
+        'unit_number': unit.number,
+        'invoices': invoices_data,
+        'total_debt': total_debt,
+        'total_penalty': total_penalty,
+        'total_due': total_debt + total_penalty
+    }

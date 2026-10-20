@@ -1,32 +1,43 @@
 from rest_framework.views import APIView
-from rest_framework import status
 from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from .selectors import user_list, user_by_id
+from .services import create_user, update_user, delete_user
 from .serializers import UserSerializer
 from .models import User
 
 
 class UserView(APIView):
     def get(self, request):
-        users = User.objects.all()
-        ser_data = UserSerializer(instance=users, many=True)
+        users = user_list()
+        ser_data = UserSerializer(users, many=True)
         return Response(ser_data.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        ser_data = UserSerializer(data=request.data)
-        if ser_data.is_valid():
-            ser_data.save()
-            return Response(ser_data.data, status=status.HTTP_201_CREATED)
-        return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = create_user(request.data)
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, pk):
-        user = User.objects.get(pk=pk)
-        ser_data = UserSerializer(instance=user, data=request.data, partial=True)
-        if ser_data.is_valid():
-            ser_data.save()
-            return Response(ser_data.data, status=status.HTTP_200_OK)
-        return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, pk: int):
+        try:
+            user = user_by_id(pk)
+        except User.DoesNotExist:
+            return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    def delete(self, request, pk):
-        user = User.objects.get(pk=pk)
-        user.delete()
+        try:
+            user = update_user(user, request.data)
+            return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk: int):
+        try:
+            user = user_by_id(pk)
+        except User.DoesNotExist:
+            return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        delete_user(user)
         return Response({'message': 'User Deleted!'}, status=status.HTTP_200_OK)
