@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any
 from django.db.models import QuerySet
 from .models import (
@@ -172,7 +173,7 @@ def vacant_units_list() -> list[Unit]:
     return vacant_units
 
 
-def active_owner_by_unit(unit):
+def active_owner_by_unit(unit: Unit) -> Ownership | None:
     today = date.today()
     return Ownership.objects.filter(
         unit=unit,
@@ -182,7 +183,7 @@ def active_owner_by_unit(unit):
     ).select_related('user').first()
 
 
-def unpaid_invoices_by_unit(unit):
+def unpaid_invoices_by_unit(unit: Unit) -> QuerySet[Invoices]:
     return Invoices.objects.filter(
         unit_id=unit,
         status__in=[
@@ -193,7 +194,7 @@ def unpaid_invoices_by_unit(unit):
     ).order_by('due_date')
 
 
-def successful_payments_total(invoice):
+def successful_payments_total(invoice: Invoices) -> Decimal:
     return Payment.objects.filter(
         invoice_id=invoice,
         status=Payment.Status.SUCCESSFUL

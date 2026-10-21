@@ -2,7 +2,7 @@ from django.contrib.auth.models import BaseUserManager
 
 
 class UserManager(BaseUserManager):
-    def create_user(self, phone_number, first_name, last_name, password):
+    def create_user(self, phone_number, first_name, last_name, password, role='resident'):
         if not phone_number:
             raise ValueError('Phone Number is required')
 
@@ -12,7 +12,7 @@ class UserManager(BaseUserManager):
         if not last_name:
             raise ValueError('Last Name is required')
 
-        user = self.model(phone_number=phone_number, first_name=first_name, last_name=last_name)
+        user = self.model(phone_number=phone_number, first_name=first_name, last_name=last_name, role=role)
         user.set_password(password)
         user.save(using=self._db)
         return user

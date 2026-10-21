@@ -2,9 +2,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from kavenegar import HTTPException, APIException, KavenegarAPI
 from django.conf import settings
-
+from accounts.permissions import IsAdminOrAccountant, IsAdminOrResident
 from buildings.selectors import facility_booking_by_id, unit_by_id
 from .models import ExpenseCategory, Expenses, ExpenseAllocations, Invoices, InvoiceItem, Payment
 from .serializers import (ExpenseCategorySerializer, ExpensesSerializer, ExpenseAllocationsSerializer,
@@ -23,6 +24,8 @@ from .services import (create_expense_category, update_expense_category, delete_
 
 
 class ExpenseCategoryView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         expense_category = expense_category_list()
         ser_data = ExpenseCategorySerializer(instance=expense_category, many=True)
@@ -50,6 +53,8 @@ class ExpenseCategoryView(APIView):
 
 
 class ExpensesView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         expenses = expenses_list()
         ser_data = ExpensesSerializer(instance=expenses, many=True)
@@ -77,6 +82,8 @@ class ExpensesView(APIView):
 
 
 class ExpenseAllocationsView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         expense_allocations = expense_allocations_list()
         ser_data = ExpenseAllocationsSerializer(instance=expense_allocations, many=True)
@@ -104,6 +111,8 @@ class ExpenseAllocationsView(APIView):
 
 
 class InvoicesView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         invoices = invoices_list()
         ser_data = InvoicesSerializer(instance=invoices, many=True)
@@ -131,6 +140,8 @@ class InvoicesView(APIView):
 
 
 class InvoiceItemView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         invoice_items = invoice_items_list()
         ser_data = InvoiceItemSerializer(instance=invoice_items, many=True)
@@ -158,6 +169,8 @@ class InvoiceItemView(APIView):
 
 
 class PaymentView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         payments = payments_list()
         ser_data = PaymentSerializer(instance=payments, many=True)
@@ -185,6 +198,8 @@ class PaymentView(APIView):
 
 
 class OverdueInvoicesView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         invoices = overdue_invoices_list()
         ser_data = OverdueInvoicesSerializer(instance=invoices, many=True)
@@ -192,6 +207,8 @@ class OverdueInvoicesView(APIView):
 
 
 class SendOverdueInvoiceSMSView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def post(self, request):
         ser_data = SendOverdueSMSSerializer(data=request.data)
         if ser_data.is_valid():
@@ -244,6 +261,8 @@ class SendOverdueInvoiceSMSView(APIView):
 
 
 class BookingPaymentView(APIView):
+    permission_classes = [IsAdminOrResident]
+
     def post(self, request, pk):
         booking = facility_booking_by_id(pk)
 
@@ -265,6 +284,8 @@ class BookingPaymentView(APIView):
 
 
 class StartZarinpalPaymentView(APIView):
+    permission_classes = [IsAdminOrResident]
+
     def post(self, request, pk):
         payment = payment_by_id(pk)
 
@@ -294,6 +315,8 @@ class StartZarinpalPaymentView(APIView):
 
 
 class ZarinpalVerifyView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         authority = request.query_params.get('Authority')
         payment_status = request.query_params.get('Status')
@@ -335,6 +358,8 @@ class ZarinpalVerifyView(APIView):
 
 
 class UnitDebtDetailView(APIView):
+    permission_classes = [IsAdminOrResident]
+
     def get(self, request, pk):
         unit = unit_by_id(pk)
         if not unit:

@@ -1,26 +1,17 @@
 from django.contrib import admin
+from utils.utils import ReadOnlyModelAdmin
 from .models import User, OtpCode
 
 
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = (
-        'phone_number',
-        'first_name',
-        'last_name',
-        'is_active',
-        'is_staff',
-        'created_at',
-    )
-    list_filter = ('is_active', 'is_staff')
-    search_fields = ('phone_number', 'first_name', 'last_name')
+class UserAdmin(ReadOnlyModelAdmin):
+    list_display = ['id', 'phone_number', 'first_name', 'last_name', 'role', 'is_active', 'created_at']
+    list_filter = ['role', 'is_active', 'is_staff']
+    search_fields = ['phone_number', 'first_name', 'last_name']
+    editable_fields = ['first_name', 'last_name']
 
 
 @admin.register(OtpCode)
-class OtpCodeAdmin(admin.ModelAdmin):
-    list_display = (
-        'phone_number',
-        'code',
-        'created',
-    )
-    search_fields = ('phone_number',)
+class OtpCodeAdmin(ReadOnlyModelAdmin):
+    list_display = ['id', 'phone_number', 'code', 'created_at']
+    search_fields = ['phone_number']

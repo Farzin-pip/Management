@@ -1,5 +1,8 @@
 from django.db.models import QuerySet
 from django.db.models import Sum
+from datetime import date
+from decimal import Decimal
+from buildings.models import Unit, FacilityBookings
 from .models import (
     ExpenseCategory,
     Expenses,
@@ -66,7 +69,11 @@ def overdue_invoice_by_id(pk: int) -> Invoices:
     return Invoices.objects.select_related('user', 'unit_id').get(pk=pk, status=Invoices.StatusType.OVERDUE)
 
 
-def invoice_by_unit_and_period(unit, period_start, period_end):
+def invoice_by_unit_and_period(
+    unit: Unit,
+    period_start: date,
+    period_end: date
+) -> Invoices | None:
     return Invoices.objects.filter(
         unit_id=unit,
         period_start=period_start,
@@ -79,19 +86,19 @@ def invoice_by_unit_and_period(unit, period_start, period_end):
     ).first()
 
 
-def facility_booking_invoice_item(booking):
+def facility_booking_invoice_item(booking: FacilityBookings) -> InvoiceItem | None:
     return InvoiceItem.objects.filter(
         facility_booking=booking
     ).select_related('invoice').first()
 
 
-def facility_booking_invoice_item_exists(booking):
+def facility_booking_invoice_item_exists(booking: FacilityBookings) -> bool:
     return InvoiceItem.objects.filter(
         facility_booking=booking
     ).exists()
 
 
-def booking_payment_exists(booking):
+def booking_payment_exists(booking: FacilityBookings) -> bool:
     return Payment.objects.filter(
         facility_booking=booking,
         status__in=[
@@ -101,7 +108,7 @@ def booking_payment_exists(booking):
     ).exists()
 
 
-def invoice_is_settled(invoice):
+def invoice_is_settled(invoice: Invoices) -> bool:
     if invoice.status == Invoices.StatusType.PAID:
         return True
 
@@ -113,32 +120,32 @@ def invoice_is_settled(invoice):
     return paid_amount >= invoice.total_amount
 
 
-def successful_payments_total(invoice):
+def successful_payments_total(invoice: Invoices) -> Decimal:
     return Payment.objects.filter(
         invoice_id=invoice,
         status=Payment.Status.SUCCESSFUL
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
 
-def successful_booking_payment(booking):
+def successful_booking_payment(booking: FacilityBookings) -> Payment | None:
     return Payment.objects.filter(
         facility_booking=booking,
         status=Payment.Status.SUCCESSFUL
     ).first()
 
 
-def invoice_has_successful_payment(invoice):
+def invoice_has_successful_payment(invoice: Invoices) -> bool:
     return Payment.objects.filter(
         invoice_id=invoice,
         status=Payment.Status.SUCCESSFUL
     ).exists()
 
 
-def payment_by_authority(authority):
+def payment_by_authority(authority: str) -> Payment | None:
     return Payment.objects.filter(authority=authority).first()
 
 
-def invoices_by_unit(unit):
+def invoices_by_unit(unit: Unit) -> QuerySet[Invoices]:
     return Invoices.objects.filter(
         unit_id=unit
     ).prefetch_related(
@@ -146,9 +153,12 @@ def invoices_by_unit(unit):
     ).order_by('due_date')
 
 
-def successful_payments_by_invoice(invoice):
-    return Payment.objects.filter(invoice_id=invoice, status=Payment.Status.SUCCESSFUL)
+def successful_payments_by_invoice(invoice: Invoices) -> QuerySet[Payment]:
+    return Payment.objects.filter(
+        invoice_id=invoice,
+        status=Payment.Status.SUCCESSFUL
+    )
 
 
-def penalties_by_invoice(invoice):
+def penalties_by_invoice(invoice: Invoices) -> QuerySet[InvoicePenalty]:
     return InvoicePenalty.objects.filter(invoice=invoice)

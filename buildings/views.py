@@ -1,10 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .selectors import building_list, building_by_id, facility_booking_by_id, resident_units, building_membership_list, \
-    building_membership_by_id, unit_list, unit_by_id, ownership_list, ownership_by_id, tenancy_by_id, tenancy_list, \
-    ticket_message_by_id, floor_list, floor_by_id, facilities_list, facilities_by_id, announcement_list, \
-    announcement_by_id, ticket_list, ticket_by_id, ticket_message_list, facility_bookings_list
+from accounts.permissions import IsAdmin, IsAdminOrAccountant, IsAdminOrResident
+from .selectors import (building_list, building_by_id, facility_booking_by_id, resident_units, building_membership_list,
+    building_membership_by_id, unit_list, unit_by_id, ownership_list, ownership_by_id, tenancy_by_id, tenancy_list,
+    ticket_message_by_id, floor_list, floor_by_id, facilities_list, facilities_by_id, announcement_list,
+    announcement_by_id, ticket_list, ticket_by_id, ticket_message_list, facility_bookings_list)
 from .serializers import (BuildingSerializer, BuildingMembershipSerializer, UnitSerializer,
                         OwnershipSerializer, TenancySerializer, FacilitiesSerializer, FacilityBookingsSerializer,
                         AnnouncementsSerializer, TicketsSerializer, TicketMessagesSerializer, FloorSerializer,
@@ -20,6 +21,8 @@ from .services import (create_building, update_building, delete_building, create
 
 
 class BuildingView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         building = building_list()
         ser_data = BuildingSerializer(instance=building, many=True)
@@ -47,6 +50,8 @@ class BuildingView(APIView):
 
 
 class BuildingMembershipView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         building_membership = building_membership_list()
         ser_data = BuildingMembershipSerializer(instance=building_membership, many=True)
@@ -74,6 +79,8 @@ class BuildingMembershipView(APIView):
 
 
 class UnitView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         units = unit_list()
         ser_data = UnitSerializer(instance=units, many=True)
@@ -101,6 +108,8 @@ class UnitView(APIView):
 
 
 class OwnershipView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         ownership = ownership_list()
         ser_data = OwnershipSerializer(instance=ownership, many=True)
@@ -128,6 +137,8 @@ class OwnershipView(APIView):
 
 
 class TenancyView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         tenancy = tenancy_list()
         ser_data = TenancySerializer(instance=tenancy, many=True)
@@ -155,6 +166,8 @@ class TenancyView(APIView):
 
 
 class FloorsView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         floors = floor_list()
         ser_data = FloorSerializer(instance=floors, many=True)
@@ -182,6 +195,8 @@ class FloorsView(APIView):
 
 
 class FacilitiesView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         facilities = facilities_list()
         ser_data = FacilitiesSerializer(instance=facilities, many=True)
@@ -209,6 +224,8 @@ class FacilitiesView(APIView):
 
 
 class FacilityBookingsView(APIView):
+    permission_classes = [IsAdminOrResident]
+
     def get(self, request):
         facility_bookings = facility_bookings_list()
         ser_data = FacilityBookingsSerializer(instance=facility_bookings, many=True)
@@ -220,8 +237,9 @@ class FacilityBookingsView(APIView):
             try:
                 facility_booking = create_facility_booking(ser_data.validated_data)
                 return Response(FacilityBookingsSerializer(facility_booking).data, status=status.HTTP_201_CREATED)
-            except ValueError as e:return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response( ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
+            except ValueError as e:
+                return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
         facility_booking = facility_booking_by_id(pk)
@@ -230,7 +248,8 @@ class FacilityBookingsView(APIView):
             try:
                 facility_booking = update_facility_booking(facility_booking, ser_data.validated_data)
                 return Response(FacilityBookingsSerializer(facility_booking).data, status=status.HTTP_200_OK)
-            except ValueError as e:return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except ValueError as e:
+                return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
@@ -240,12 +259,17 @@ class FacilityBookingsView(APIView):
 
 
 class AnnouncementsView(APIView):
+    permission_classes = [IsAdminOrResident]
+
     def get(self, request):
         announcements = announcement_list()
         ser_data = AnnouncementsSerializer(instance=announcements, many=True)
         return Response(ser_data.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        if request.user.role != 'admin':
+            return Response({'detail': 'You do not have permission to perform this action.'},
+                            status=status.HTTP_403_FORBIDDEN)
         ser_data = AnnouncementsSerializer(data=request.data)
         if ser_data.is_valid():
             announcement = create_announcement(ser_data.validated_data)
@@ -253,6 +277,9 @@ class AnnouncementsView(APIView):
         return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
+        if request.user.role != 'admin':
+            return Response({'detail': 'You do not have permission to perform this action.'},
+                            status=status.HTTP_403_FORBIDDEN)
         announcement = announcement_by_id(pk)
         ser_data = AnnouncementsSerializer(instance=announcement, data=request.data, partial=True)
         if ser_data.is_valid():
@@ -261,12 +288,17 @@ class AnnouncementsView(APIView):
         return Response(ser_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
+        if request.user.role != 'admin':
+            return Response({'detail': 'You do not have permission to perform this action.'},
+                            status=status.HTTP_403_FORBIDDEN)
         announcement = announcement_by_id(pk)
         delete_announcement(announcement)
         return Response({'message': 'Announcement Deleted!'}, status=status.HTTP_200_OK)
 
 
 class TicketsView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         tickets = ticket_list()
         ser_data = TicketsSerializer(instance=tickets, many=True)
@@ -294,6 +326,8 @@ class TicketsView(APIView):
 
 
 class TicketMessagesView(APIView):
+    permission_classes = [IsAdmin]
+
     def get(self, request):
         ticket_messages = ticket_message_list()
         ser_data = TicketMessagesSerializer(instance=ticket_messages, many=True)
@@ -321,6 +355,8 @@ class TicketMessagesView(APIView):
 
 
 class VacantUnitsOverdueReportView(APIView):
+    permission_classes = [IsAdminOrAccountant]
+
     def get(self, request):
         data = vacant_units_overdue_report()
         ser_data = VacantUnitReportSerializer(data, many=True)

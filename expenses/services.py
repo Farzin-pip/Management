@@ -2,7 +2,7 @@ from django.conf import settings
 import requests
 from typing import Any
 from datetime import date, timedelta
-from buildings.models import FacilityBookings
+from buildings.models import FacilityBookings, Unit
 from django.db.models import Sum
 from django.db import models
 from .models import (
@@ -450,7 +450,7 @@ def verify_zarinpal_payment(payment: Payment) -> dict:
     }
 
 
-def unit_debt_detail(unit):
+def unit_debt_detail(unit: Unit) -> dict:
     today = date.today()
     invoices_data = []
     total_debt = Decimal('0.00')

@@ -153,20 +153,22 @@ MAILERS = {
 AUTH_USER_MODEL = 'accounts.User'
 
 # Kavenegar
-
 KAVENEGAR_API_KEY = env("KAVENEGAR_API_KEY")
 KAVENEGAR_SENDER = env("KAVENEGAR_SENDER")
 
-# Rest FrameWork
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#     ),
-# }
+# Rest FrameWork
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
 
 # ZarinPal
-
 ZARINPAL_MERCHANT_ID = env('ZARINPAL_MERCHANT_ID', default='')
 ZARINPAL_SANDBOX = env.bool('ZARINPAL_SANDBOX', default=True)
 ZARINPAL_CALLBACK_URL = env(

@@ -333,7 +333,7 @@ def delete_facility_booking(facility_booking: FacilityBookings) -> None:
     facility_booking.delete()
 
 
-def vacant_units_overdue_report():
+def vacant_units_overdue_report() -> list[dict]:
     today = date.today()
     units = []
 
