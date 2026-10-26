@@ -1,5 +1,5 @@
 from django.db.models import QuerySet
-from .models import User, OtpCode
+from .models import User, OtpCode, UserToken
 
 
 def user_list() -> QuerySet[User]:
@@ -16,3 +16,7 @@ def get_user_by_phone(phone_number: str) -> User | None:
 
 def get_otp_by_phone(phone_number: str) -> OtpCode | None:
     return OtpCode.objects.filter(phone_number=phone_number).first()
+
+
+def get_user_token(user: User) -> UserToken | None:
+    return UserToken.objects.filter(user=user).first()

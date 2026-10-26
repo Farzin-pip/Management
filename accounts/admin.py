@@ -15,3 +15,4 @@ class UserAdmin(ReadOnlyModelAdmin):
 class OtpCodeAdmin(ReadOnlyModelAdmin):
     list_display = ['id', 'phone_number', 'code', 'created_at']
     search_fields = ['phone_number']
+    editable_fields = ['phone_number', 'code']

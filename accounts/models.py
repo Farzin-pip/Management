@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from .managers import UserManager
+from django.conf import settings
 
 
 class User(AbstractBaseUser,PermissionsMixin):
@@ -18,6 +19,7 @@ class User(AbstractBaseUser,PermissionsMixin):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.RESIDENT)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+
 
     objects = UserManager()
 
@@ -38,5 +40,17 @@ class OtpCode(models.Model):
 
     def __str__(self):
         return f'{self.phone_number} | {self.code} | {self.created_at}'
+
+
+class UserToken(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    access_token = models.TextField()
+    refresh_token = models.TextField()
+    access_expires_at = models.DateTimeField()
+    refresh_expires_at = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return str(self.user)
 
 

@@ -1,12 +1,14 @@
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
-from .models import User
+from .models import User, UserToken
 from .serializers import UserSerializer
 import secrets
 from django.utils import timezone
 from accounts.models import OtpCode
+from django.contrib.auth import get_user_model
+from datetime import datetime, timezone as dt_timezone
 
 
 def create_user(data: dict):
@@ -59,23 +61,6 @@ def register_user(validated_data: dict) -> User:
     return user
 
 
-def login_user(phone_number: str, password: str) -> dict:
-    user = authenticate(
-        username=phone_number,
-        password=password,
-    )
-
-    if user is None or not user.is_active:
-        raise AuthenticationFailed("شماره موبایل یا رمز عبور اشتباه است.")
-
-    refresh = RefreshToken.for_user(user)
-
-    return {
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-    }
-
-
 def logout_user(refresh_token: str, user: User) -> None:
     try:
         token = RefreshToken(refresh_token)
@@ -87,3 +72,48 @@ def logout_user(refresh_token: str, user: User) -> None:
 
     except TokenError:
         raise AuthenticationFailed("توکن نامعتبر است یا قبلاً باطل شده است.")
+
+
+User = get_user_model()
+def save_user_tokens(
+    user: User,
+    access_token: str,
+    refresh_token: str,
+) -> UserToken:
+    access = AccessToken(access_token)
+    refresh = RefreshToken(refresh_token)
+
+    token, _ = UserToken.objects.update_or_create(
+        user=user,
+        defaults={
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'access_expires_at': datetime.fromtimestamp(
+                access['exp'], tz=dt_timezone.utc
+            ),
+            'refresh_expires_at': datetime.fromtimestamp(
+                refresh['exp'], tz=dt_timezone.utc
+            ),
+        },
+    )
+    return token
+
+
+def login_user(phone_number: str, password: str) -> dict:
+    user = authenticate(
+        username=phone_number,
+        password=password,
+    )
+
+    if user is None or not user.is_active:
+        raise AuthenticationFailed("شماره موبایل یا رمز عبور اشتباه است.")
+
+    refresh = RefreshToken.for_user(user)
+    access = refresh.access_token
+
+    save_user_tokens(user=user, access_token=str(access), refresh_token=str(refresh),)
+
+    return {
+        "refresh": str(refresh),
+        "access": str(refresh.access_token),
+    }

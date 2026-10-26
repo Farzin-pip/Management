@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError, AuthenticationFailed
 from rest_framework.request import Request
-
+from rest_framework.throttling import AnonRateThrottle
+from accounts.throttles import OtpPhoneRateThrottle
 from utils.utils import send_otp
 from .selectors import user_list, user_by_id
 from .services import create_user, update_user, delete_user, login_user, logout_user, register_user
@@ -83,11 +84,13 @@ class LoginView(APIView):
                     serializer.validated_data["phone_number"],
                     serializer.validated_data["password"],
                 )
-                return Response(tokens, status=status.HTTP_200_OK)
+                return Response({
+                    'message': 'لاگین با موفقیت انجام شد', 'status':status.HTTP_200_OK
+                })
 
             except AuthenticationFailed as e:
                 return Response({"error": str(e.detail)}, status=status.HTTP_401_UNAUTHORIZED,)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(APIView):
@@ -109,6 +112,7 @@ class LogoutView(APIView):
 
 class SendOtpView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, OtpPhoneRateThrottle]
 
     def post(self, request):
         serializer = SendOtpSerializer(data=request.data)
